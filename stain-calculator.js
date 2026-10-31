@@ -1,5 +1,6 @@
 let stainType = null;
 let colors = [];
+let validationAttempted = false;
 
 function selectType(type) {
   stainType = type;
@@ -33,9 +34,54 @@ function removeColor(id) {
   renderColors();
 }
 
-function updateColor(id, field, value) {
+function updateColor(id, field, inputEl) {
   const color = colors.find(c => c.id === id);
-  if (color) color[field] = value;
+  if (!color) return;
+  color[field] = inputEl.value;
+  if (field === "parts") color.partsBadInput = inputEl.validity.badInput;
+  // After the first Calculate attempt, re-validate the row live
+  if (validationAttempted) applyRowErrors(color);
+}
+
+// Accepts only non-negative decimals: "2", "2.5", ".5", "5."
+// Rejects negatives, exponents (1e3), Infinity and any other text
+function parsePositive(value) {
+  const v = String(value).trim();
+  if (!/^(\d+(\.\d*)?|\.\d+)$/.test(v)) return NaN;
+  const n = parseFloat(v);
+  return Number.isFinite(n) ? n : NaN;
+}
+
+function blockInvalidKeys(event) {
+  if (["-", "+", "e", "E"].includes(event.key)) event.preventDefault();
+}
+
+// A fully blank row is ignored; a partially filled row must be complete and valid
+function getColorErrors(c) {
+  const partsRaw = String(c.parts).trim();
+  const name = c.name.trim();
+  const brand = c.brand.trim();
+  if (!partsRaw && !name && !brand && !c.partsBadInput) {
+    return { empty: true, parts: false, name: false };
+  }
+  const parts = parsePositive(partsRaw);
+  return {
+    empty: false,
+    parts: c.partsBadInput || isNaN(parts) || parts <= 0,
+    name: !name
+  };
+}
+
+function setFieldError(el, hasError) {
+  if (!el) return;
+  el.classList.toggle("error", hasError);
+  el.setAttribute("aria-invalid", hasError ? "true" : "false");
+}
+
+function applyRowErrors(c) {
+  const errs = getColorErrors(c);
+  setFieldError(document.getElementById(`parts-${c.id}`), errs.parts);
+  setFieldError(document.getElementById(`name-${c.id}`), errs.name);
 }
 
 function sanitize(str) {
@@ -51,15 +97,23 @@ function renderColors() {
   const listEl = document.getElementById("colorList");
   listEl.innerHTML = colors.map((c, i) => `
     <div class="color-row">
-      <input class="parts-input" type="number" placeholder="Parts" value="${c.parts}"
-        oninput="updateColor(${c.id}, 'parts', this.value)" min="1">
-      <input type="text" placeholder="Color name or number" value="${sanitize(c.name)}"
-        oninput="updateColor(${c.id}, 'name', this.value)">
+      <input class="parts-input" id="parts-${c.id}" type="number" placeholder="Parts"
+        value="${sanitize(c.parts)}" min="0" step="any" inputmode="decimal"
+        aria-label="Color ${i + 1} parts"
+        onkeydown="blockInvalidKeys(event)"
+        oninput="updateColor(${c.id}, 'parts', this)">
+      <input type="text" id="name-${c.id}" placeholder="Color name or number"
+        value="${sanitize(c.name)}" aria-label="Color ${i + 1} name or number"
+        oninput="updateColor(${c.id}, 'name', this)">
       <input type="text" placeholder="Brand" value="${sanitize(c.brand)}"
-        oninput="updateColor(${c.id}, 'brand', this.value)">
-      <button class="remove-btn" onclick="removeColor(${c.id})">✕</button>
+        aria-label="Color ${i + 1} brand"
+        oninput="updateColor(${c.id}, 'brand', this)">
+      <button class="remove-btn" aria-label="Remove color ${i + 1}" onclick="removeColor(${c.id})">✕</button>
     </div>
   `).join("");
+
+  // Keep error marks after adding/removing rows
+  if (validationAttempted) colors.forEach(applyRowErrors);
 }
 
 function fmt(n) {
@@ -73,19 +127,36 @@ function calculate() {
   const area = parseFloat(document.getElementById("area").value);
 
   if (!stainType) {
-    resultEl.innerHTML = `<div class="error-msg">Please select a stain type.</div>`;
+    resultEl.innerHTML = `<div class="error-msg" role="alert">Please select a stain type.</div>`;
     return;
   }
   if (isNaN(area) || area <= 0) {
     document.getElementById("area").classList.add("error");
-    resultEl.innerHTML = `<div class="error-msg">Please enter a valid area.</div>`;
+    resultEl.innerHTML = `<div class="error-msg" role="alert">Please enter a valid area.</div>`;
     return;
   }
   document.getElementById("area").classList.remove("error");
 
-  const validColors = colors.filter(c => c.parts && c.name && parseFloat(c.parts) > 0);
+  validationAttempted = true;
+  const validColors = [];
+  const rowErrors = [];
+
+  colors.forEach((c, i) => {
+    const errs = getColorErrors(c);
+    applyRowErrors(c);
+    if (errs.empty) return;
+    if (errs.parts) rowErrors.push(`Color ${i + 1}: parts must be a positive number.`);
+    if (errs.name)  rowErrors.push(`Color ${i + 1}: color name or number is required.`);
+    if (!errs.parts && !errs.name) validColors.push(c);
+  });
+
+  // Never calculate with an incomplete formula: it would unbalance the proportions
+  if (rowErrors.length) {
+    resultEl.innerHTML = `<div class="error-msg" role="alert">${rowErrors.join("<br>")}</div>`;
+    return;
+  }
   if (validColors.length === 0) {
-    resultEl.innerHTML = `<div class="error-msg">Please add at least one color with parts and name.</div>`;
+    resultEl.innerHTML = `<div class="error-msg" role="alert">Please add at least one color with parts and name.</div>`;
     return;
   }
 
@@ -103,14 +174,14 @@ function calculate() {
     unitSize = 128;
   }
 
-  const totalParts = validColors.reduce((sum, c) => sum + parseFloat(c.parts), 0);
+  const totalParts = validColors.reduce((sum, c) => sum + parsePositive(c.parts), 0);
   const ozPerPart = totalOz / totalParts;
 
   const colorResults = validColors.map(c => {
-    const parts = parseFloat(c.parts);
+    const parts = parsePositive(c.parts);
     const ozNeeded = parts * ozPerPart;
     const unitsToBuy = Math.ceil(ozNeeded / unitSize);
-    return { ...c, ozNeeded, unitsToBuy, unitLabel };
+    return { ...c, parts, name: c.name.trim(), brand: c.brand.trim(), ozNeeded, unitsToBuy, unitLabel };
   });
 
   const mixRows = colorResults.map(c => `
@@ -151,6 +222,7 @@ function calculate() {
 function resetAll() {
   stainType = null;
   colors = [];
+  validationAttempted = false;
 
   document.getElementById("btnOil").classList.remove("active");
   document.getElementById("btnWater").classList.remove("active");

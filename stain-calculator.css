@@ -113,3 +113,36 @@
   color: var(--wood-light);
   letter-spacing: 0.06em;
 }
+
+.add-section-btn {
+  font-family: 'DM Mono', monospace;
+  font-size: 11px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  padding: 7px 12px;
+  background: transparent;
+  color: var(--wood-mid);
+  border: 1.5px solid var(--wood-pale);
+  border-radius: 3px;
+  cursor: pointer;
+  transition: background 0.2s, border-color 0.2s;
+  margin-top: 4px;
+}
+
+.add-section-btn:hover {
+  background: var(--wood-pale);
+  border-color: var(--wood-light);
+}
+
+.remove-btn {
+  font-size: 14px;
+  background: transparent;
+  border: none;
+  color: #f4b8a8;
+  cursor: pointer;
+  flex-shrink: 0;
+  padding: 0 4px;
+  transition: color 0.2s;
+}
+
+.remove-btn:hover { color: var(--accent); }
