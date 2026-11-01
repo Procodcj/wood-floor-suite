@@ -14,31 +14,46 @@ function reset() {
 }
 
 function parseFraction(value) {
-  if (!value || !value.trim()) return NaN;
-  const parts = value.trim().split(/\s+/);
-  let whole = 0, fraction = 0;
+  if (typeof value !== "string") return NaN;
+  const v = value.trim();
+  if (!v) return NaN;
 
-  if (parts.length === 2) {
-    whole = parseFloat(parts[0]);
-    const fp = parts[1].split("/");
-    if (fp.length === 2) {
-      fraction = parseFloat(fp[0]) / parseFloat(fp[1]);
-    } else {
-      return NaN;
-    }
-  } else if (parts.length === 1) {
-    const fp = parts[0].split("/");
-    if (fp.length === 2) {
-      fraction = parseFloat(fp[0]) / parseFloat(fp[1]);
-    } else {
-      whole = parseFloat(parts[0]);
-    }
-  } else {
-    return NaN;
+  // 1) Mixed number with space or hyphen: "12 3/4" or "12-3/4"
+  const mixedMatch = v.match(/^(\d+)(?:\s+|\s*-\s*)(\d+)\s*\/\s*(\d+)$/);
+  if (mixedMatch) {
+    const whole = Number(mixedMatch[1]);
+    const num = Number(mixedMatch[2]);
+    const den = Number(mixedMatch[3]);
+    if (den === 0) return NaN;
+    const result = whole + num / den;
+    return Number.isFinite(result) ? result : NaN;
   }
 
-  const result = whole + fraction;
-  return isNaN(result) ? NaN : result;
+  // 2) Simple fraction: "3/4"
+  const fracMatch = v.match(/^(\d+)\s*\/\s*(\d+)$/);
+  if (fracMatch) {
+    const num = Number(fracMatch[1]);
+    const den = Number(fracMatch[2]);
+    if (den === 0) return NaN;
+    const result = num / den;
+    return Number.isFinite(result) ? result : NaN;
+  }
+
+  // 3) Standard whole or decimal number: "12", "12.75", ".75", "12."
+  if (/^(\d+(\.\d*)?|\.\d+)$/.test(v)) {
+    const result = parseFloat(v);
+    return Number.isFinite(result) ? result : NaN;
+  }
+
+  return NaN;
+}
+
+function parsePositiveInt(value) {
+  if (typeof value !== "string") return NaN;
+  const v = value.trim();
+  if (!/^\d+$/.test(v)) return NaN;
+  const n = Number(v);
+  return Number.isSafeInteger(n) && n > 0 ? n : NaN;
 }
 
 function fmt(n) {
@@ -46,13 +61,17 @@ function fmt(n) {
 }
 
 function setError(id, msg) {
-  document.getElementById(id).classList.add("error");
+  const el = document.getElementById(id);
+  el.classList.add("error");
+  el.setAttribute("aria-invalid", "true");
   return msg;
 }
 
 function clearErrors() {
   ["length", "width", "numberOfBoards", "bundlesPerPallet"].forEach(id => {
-    document.getElementById(id).classList.remove("error");
+    const el = document.getElementById(id);
+    el.classList.remove("error");
+    el.setAttribute("aria-invalid", "false");
   });
 }
 
@@ -66,17 +85,17 @@ function calculate() {
 
   const lengthRaw  = parseFraction(document.getElementById("length").value);
   const widthRaw   = parseFraction(document.getElementById("width").value);
-  const numBoards  = parseFloat(document.getElementById("numberOfBoards").value);
-  const numBundles = parseFloat(document.getElementById("bundlesPerPallet").value);
+  const numBoards  = parsePositiveInt(document.getElementById("numberOfBoards").value);
+  const numBundles = parsePositiveInt(document.getElementById("bundlesPerPallet").value);
 
-  if (isNaN(lengthRaw) || lengthRaw <= 0)  errors.push(setError("length",         "Bundle length is required and must be > 0."));
-  if (isNaN(widthRaw)  || widthRaw  <= 0)  errors.push(setError("width",          "Board width is required and must be > 0."));
-  if (isNaN(numBoards) || numBoards  <= 0) errors.push(setError("numberOfBoards", "Number of boards must be > 0."));
-  if (isNaN(numBundles)|| numBundles <= 0) errors.push(setError("bundlesPerPallet","Bundles per pallet must be > 0."));
+  if (!Number.isFinite(lengthRaw) || lengthRaw <= 0)   errors.push(setError("length",          "Bundle length is required and must be a valid measure > 0."));
+  if (!Number.isFinite(widthRaw)  || widthRaw  <= 0)   errors.push(setError("width",           "Board width is required and must be a valid measure > 0."));
+  if (!Number.isFinite(numBoards) || numBoards <= 0)   errors.push(setError("numberOfBoards",  "Boards per bundle must be a whole number > 0."));
+  if (!Number.isFinite(numBundles)|| numBundles <= 0)  errors.push(setError("bundlesPerPallet","Bundles per pallet must be a whole number > 0."));
 
   if (errors.length) {
     resultEl.style.display = "block";
-    resultEl.innerHTML = `<div class="error-msg">${errors.join("<br>")}</div>`;
+    resultEl.innerHTML = `<div class="error-msg" role="alert">${errors.join("<br>")}</div>`;
     return;
   }
 
@@ -89,6 +108,12 @@ function calculate() {
   const sqftPerBoard  = lengthFt * widthFt;
   const sqftPerBundle = sqftPerBoard * numBoards;
   const sqftPerPallet = sqftPerBundle * numBundles;
+
+  if (!Number.isFinite(sqftPerPallet) || sqftPerPallet <= 0) {
+    resultEl.style.display = "block";
+    resultEl.innerHTML = `<div class="error-msg" role="alert">Calculation resulted in an invalid value. Please check your inputs.</div>`;
+    return;
+  }
 
   history.push({ label: `Pallet ${history.length + 1}`, value: sqftPerPallet });
   renderHistory();
