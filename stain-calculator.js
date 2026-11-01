@@ -44,9 +44,9 @@ function updateColor(id, field, inputEl) {
   if (validationAttempted) applyRowErrors(color);
 }
 
-// Accepts only non-negative decimals: "2", "2.5", ".5", "5."
+// Accepts only positive decimals: "2", "2.5", ".5", "5."
 // Rejects negatives, exponents (1e3), Infinity and any other text
-function parsePositive(value) {
+function parsePositiveDecimal(value) {
   const v = String(value).trim();
   if (!/^(\d+(\.\d*)?|\.\d+)$/.test(v)) return NaN;
   const n = parseFloat(v);
@@ -65,7 +65,7 @@ function getColorErrors(c) {
   if (!partsRaw && !name && !brand && !c.partsBadInput) {
     return { empty: true, parts: false, name: false };
   }
-  const parts = parsePositive(partsRaw);
+  const parts = parsePositiveDecimal(partsRaw);
   return {
     empty: false,
     parts: c.partsBadInput || isNaN(parts) || parts <= 0,
@@ -86,12 +86,12 @@ function applyRowErrors(c) {
 }
 
 function sanitize(str) {
-  if (typeof str !== 'string') str = String(str);
-  return str.replace(/&/g, '&amp;')
-            .replace(/</g, '&lt;')
-            .replace(/>/g, '&gt;')
-            .replace(/"/g, '&quot;')
-            .replace(/'/g, '&#039;');
+  if (typeof str !== "string") str = String(str);
+  return str.replace(/&/g, "&amp;")
+            .replace(/</g, "&lt;")
+            .replace(/>/g, "&gt;")
+            .replace(/"/g, "&quot;")
+            .replace(/'/g, "&#039;");
 }
 
 function renderColors() {
@@ -101,15 +101,14 @@ function renderColors() {
       <input class="parts-input" id="parts-${c.id}" type="number" placeholder="Parts"
         value="${sanitize(c.parts)}" min="0" step="any" inputmode="decimal"
         aria-label="Color ${i + 1} parts"
-        onkeydown="blockInvalidKeys(event)"
-        oninput="updateColor(${c.id}, 'parts', this)">
+        data-color-id="${c.id}" data-field="parts">
       <input type="text" id="name-${c.id}" placeholder="Color name or number"
         value="${sanitize(c.name)}" aria-label="Color ${i + 1} name or number"
-        oninput="updateColor(${c.id}, 'name', this)">
+        data-color-id="${c.id}" data-field="name">
       <input type="text" placeholder="Brand" value="${sanitize(c.brand)}"
         aria-label="Color ${i + 1} brand"
-        oninput="updateColor(${c.id}, 'brand', this)">
-      <button class="remove-btn" aria-label="Remove color ${i + 1}" onclick="removeColor(${c.id})">✕</button>
+        data-color-id="${c.id}" data-field="brand">
+      <button type="button" class="remove-btn" aria-label="Remove color ${i + 1}" data-action="remove-color" data-color-id="${c.id}">✕</button>
     </div>
   `).join("");
 
@@ -118,7 +117,7 @@ function renderColors() {
 }
 
 function fmt(n) {
-  return n.toFixed(2);
+  return n.toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ",");
 }
 
 function calculate() {
@@ -175,11 +174,11 @@ function calculate() {
     unitSize = 128;
   }
 
-  const totalParts = validColors.reduce((sum, c) => sum + parsePositive(c.parts), 0);
+  const totalParts = validColors.reduce((sum, c) => sum + parsePositiveDecimal(c.parts), 0);
   const ozPerPart = totalOz / totalParts;
 
   const colorResults = validColors.map(c => {
-    const parts = parsePositive(c.parts);
+    const parts = parsePositiveDecimal(c.parts);
     const ozNeeded = parts * ozPerPart;
     const unitsToBuy = Math.ceil(ozNeeded / unitSize);
     return { ...c, parts, name: c.name.trim(), brand: c.brand.trim(), ozNeeded, unitsToBuy, unitLabel };
@@ -245,3 +244,33 @@ function resetAll() {
   document.getElementById("calcBtn").style.display = "none";
   document.getElementById("resetBtn").style.display = "none";
 }
+
+document.addEventListener("DOMContentLoaded", () => {
+  document.getElementById("btnOil").addEventListener("click", () => selectType("oil"));
+  document.getElementById("btnWater").addEventListener("click", () => selectType("water"));
+  document.getElementById("addColorBtn").addEventListener("click", addColor);
+  document.getElementById("calcBtn").addEventListener("click", calculate);
+  document.getElementById("resetBtn").addEventListener("click", resetAll);
+
+  const listEl = document.getElementById("colorList");
+
+  listEl.addEventListener("click", (event) => {
+    const btn = event.target.closest("button[data-action='remove-color']");
+    if (!btn) return;
+    removeColor(Number(btn.dataset.colorId));
+  });
+
+  listEl.addEventListener("keydown", (event) => {
+    if (event.target.matches("input[data-field='parts']")) {
+      blockInvalidKeys(event);
+    }
+  });
+
+  listEl.addEventListener("input", (event) => {
+    const inputEl = event.target;
+    if (!inputEl.matches("input[data-field]")) return;
+    const colorId = Number(inputEl.dataset.colorId);
+    const field = inputEl.dataset.field;
+    updateColor(colorId, field, inputEl);
+  });
+});

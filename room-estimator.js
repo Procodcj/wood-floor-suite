@@ -47,7 +47,7 @@ function updateSection(roomId, sectionId, field, inputEl) {
 
   const raw = inputEl.value;
   const invalid = inputEl.validity.badInput ||
-    (raw.trim() !== "" && isNaN(parseMeasurement(raw)));
+    (raw.trim() !== "" && isNaN(parsePositiveDecimal(raw)));
 
   // Invalid values are never stored, so they can't affect any total
   section[field] = invalid ? "" : raw;
@@ -70,9 +70,8 @@ function updateTotals(room, section) {
 
 // Accepts only positive decimals: "12", "12.5", ".5", "5."
 // Rejects negatives, exponents (1e3), Infinity and any other text
-function parseMeasurement(value) {
-  if (typeof value !== "string") return NaN;
-  const v = value.trim();
+function parsePositiveDecimal(value) {
+  const v = String(value).trim();
   if (!/^(\d+(\.\d*)?|\.\d+)$/.test(v)) return NaN;
   const n = parseFloat(v);
   return Number.isFinite(n) ? n : NaN;
@@ -83,13 +82,13 @@ function blockInvalidKeys(event) {
 }
 
 function toInputValue(value) {
-  const n = parseMeasurement(value);
+  const n = parsePositiveDecimal(value);
   return isNaN(n) ? "" : String(n);
 }
 
 function getSectionArea(section) {
-  const l = parseMeasurement(section.length);
-  const w = parseMeasurement(section.width);
+  const l = parsePositiveDecimal(section.length);
+  const w = parsePositiveDecimal(section.width);
   return (l > 0 && w > 0) ? l * w : 0;
 }
 
@@ -106,12 +105,12 @@ function fmt(n) {
 }
 
 function sanitize(str) {
-  if (typeof str !== 'string') str = String(str);
-  return str.replace(/&/g, '&amp;')
-            .replace(/</g, '&lt;')
-            .replace(/>/g, '&gt;')
-            .replace(/"/g, '&quot;')
-            .replace(/'/g, '&#039;');
+  if (typeof str !== "string") str = String(str);
+  return str.replace(/&/g, "&amp;")
+            .replace(/</g, "&lt;")
+            .replace(/>/g, "&gt;")
+            .replace(/"/g, "&quot;")
+            .replace(/'/g, "&#039;");
 }
 
 function renderRooms() {
@@ -132,15 +131,13 @@ function renderRooms() {
           <span class="section-label">${String.fromCharCode(65 + i)}</span>
           <input type="number" placeholder="Length" value="${toInputValue(s.length)}"
             min="0" step="any" inputmode="decimal"
-            onkeydown="blockInvalidKeys(event)"
-            oninput="updateSection(${room.id}, ${s.id}, 'length', this)">
+            data-room-id="${room.id}" data-section-id="${s.id}" data-field="length">
           <span class="section-x">×</span>
           <input type="number" placeholder="Width" value="${toInputValue(s.width)}"
             min="0" step="any" inputmode="decimal"
-            onkeydown="blockInvalidKeys(event)"
-            oninput="updateSection(${room.id}, ${s.id}, 'width', this)">
+            data-room-id="${room.id}" data-section-id="${s.id}" data-field="width">
           <span class="section-result" id="section-result-${s.id}">${formatArea(getSectionArea(s))}</span>
-          <button class="remove-btn" onclick="removeSection(${room.id}, ${s.id})">✕</button>
+          <button type="button" class="remove-btn" data-action="remove-section" data-room-id="${room.id}" data-section-id="${s.id}">✕</button>
         </div>
       `;
     }).join("");
@@ -150,11 +147,11 @@ function renderRooms() {
         <div class="room-block-header">
           <span class="room-block-name">${sanitize(room.name)}</span>
           <span class="room-block-total" id="room-total-${room.id}">${formatArea(roomTotal)}</span>
-          <button class="remove-btn" onclick="removeRoom(${room.id})">✕</button>
+          <button type="button" class="remove-btn" data-action="remove-room" data-room-id="${room.id}">✕</button>
         </div>
         <div class="room-block-body">
           ${sections}
-          <button class="add-section-btn" onclick="addSection(${room.id})">+ Add Section</button>
+          <button type="button" class="add-section-btn" data-action="add-section" data-room-id="${room.id}">+ Add Section</button>
         </div>
       </div>
     `;
@@ -173,3 +170,39 @@ function renderGrandTotal() {
     </div>
   ` : "";
 }
+
+document.addEventListener("DOMContentLoaded", () => {
+  document.getElementById("addRoomBtn").addEventListener("click", addRoom);
+
+  const listEl = document.getElementById("roomList");
+
+  listEl.addEventListener("click", (event) => {
+    const btn = event.target.closest("button[data-action]");
+    if (!btn) return;
+    const action = btn.dataset.action;
+    const roomId = Number(btn.dataset.roomId);
+    if (action === "add-section") {
+      addSection(roomId);
+    } else if (action === "remove-room") {
+      removeRoom(roomId);
+    } else if (action === "remove-section") {
+      const sectionId = Number(btn.dataset.sectionId);
+      removeSection(roomId, sectionId);
+    }
+  });
+
+  listEl.addEventListener("keydown", (event) => {
+    if (event.target.matches("input[data-field]")) {
+      blockInvalidKeys(event);
+    }
+  });
+
+  listEl.addEventListener("input", (event) => {
+    const inputEl = event.target;
+    if (!inputEl.matches("input[data-field]")) return;
+    const roomId = Number(inputEl.dataset.roomId);
+    const sectionId = Number(inputEl.dataset.sectionId);
+    const field = inputEl.dataset.field;
+    updateSection(roomId, sectionId, field, inputEl);
+  });
+});

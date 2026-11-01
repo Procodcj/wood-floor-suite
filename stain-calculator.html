@@ -23,8 +23,8 @@
       <div class="field-group">
         <label>Stain Type</label>
         <div class="type-selector">
-          <button class="type-btn" id="btnOil" onclick="selectType('oil')">Oil Based</button>
-          <button class="type-btn" id="btnWater" onclick="selectType('water')">Water Based</button>
+          <button type="button" class="type-btn" id="btnOil">Oil Based</button>
+          <button type="button" class="type-btn" id="btnWater">Water Based</button>
         </div>
         <div class="hint" id="coverageHint"></div>
       </div>
@@ -39,13 +39,13 @@
       <div class="field-group" id="colorGroup" style="display:none;">
         <label>Mix Formula</label>
         <div id="colorList"></div>
-        <button class="add-section-btn" onclick="addColor()">+ Add Color</button>
+        <button type="button" class="add-section-btn" id="addColorBtn">+ Add Color</button>
       </div>
 
       <hr class="divider" id="divider" style="display:none;">
 
-      <button class="calc-btn" id="calcBtn" style="display:none;" onclick="calculate()">Calculate</button>
-      <button class="reset-btn" id="resetBtn" style="display:none;" onclick="resetAll()">New Calculation</button>
+      <button type="button" class="calc-btn" id="calcBtn" style="display:none;">Calculate</button>
+      <button type="button" class="reset-btn" id="resetBtn" style="display:none;">New Calculation</button>
 
       <div id="result"></div>
 

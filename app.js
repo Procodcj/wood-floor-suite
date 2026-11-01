@@ -1,4 +1,4 @@
-let history = [];
+let palletHistory = [];
 
 function reset() {
   clearErrors();
@@ -60,6 +60,15 @@ function fmt(n) {
   return n.toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ",");
 }
 
+function sanitize(str) {
+  if (typeof str !== "string") str = String(str);
+  return str.replace(/&/g, "&amp;")
+            .replace(/</g, "&lt;")
+            .replace(/>/g, "&gt;")
+            .replace(/"/g, "&quot;")
+            .replace(/'/g, "&#039;");
+}
+
 function setError(id, msg) {
   const el = document.getElementById(id);
   el.classList.add("error");
@@ -115,7 +124,7 @@ function calculate() {
     return;
   }
 
-  history.push({ label: `Pallet ${history.length + 1}`, value: sqftPerPallet });
+  palletHistory.push({ label: `Pallet ${palletHistory.length + 1}`, value: sqftPerPallet });
   renderHistory();
   
   resultEl.style.display = "block";
@@ -140,14 +149,14 @@ function calculate() {
 
 function renderHistory() {
   const historyEl = document.getElementById("history");
-  if (history.length === 0) {
+  if (palletHistory.length === 0) {
     historyEl.innerHTML = "";
     return;
   }
-  const total = history.reduce((sum, item) => sum + item.value, 0);
-  const items = history.map((item, i) => `
+  const total = palletHistory.reduce((sum, item) => sum + item.value, 0);
+  const items = palletHistory.map((item) => `
     <div class="history-item">
-      <span class="history-item-label">${item.label}</span>
+      <span class="history-item-label">${sanitize(item.label)}</span>
       <span>${fmt(item.value)} ft²</span>
     </div>
   `).join("");
@@ -165,6 +174,12 @@ function renderHistory() {
 }
 
 function clearHistory() {
-  history = [];
+  palletHistory = [];
   renderHistory();
 }
+
+document.addEventListener("DOMContentLoaded", () => {
+  document.getElementById("calcBtn").addEventListener("click", calculate);
+  document.getElementById("resetBtn").addEventListener("click", reset);
+  document.getElementById("clearBtn").addEventListener("click", clearHistory);
+});
