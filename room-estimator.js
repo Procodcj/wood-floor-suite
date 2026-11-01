@@ -1,4 +1,5 @@
 let rooms = [];
+let nextId = 0;
 
 function addRoom() {
   const nameInput = document.getElementById("roomName");
@@ -10,7 +11,7 @@ function addRoom() {
   nameInput.classList.remove("error");
   nameInput.value = "";
 
-  rooms.push({ id: Date.now(), name: name, sections: [] });
+  rooms.push({ id: ++nextId, name: name, sections: [] });
   renderRooms();
   nameInput.focus();
 }
@@ -18,7 +19,7 @@ function addRoom() {
 function addSection(roomId) {
   const room = rooms.find(r => r.id === roomId);
   if (room) {
-    room.sections.push({ id: Date.now(), length: "", width: "" });
+    room.sections.push({ id: ++nextId, length: "", width: "" });
     renderRooms();
   }
 }

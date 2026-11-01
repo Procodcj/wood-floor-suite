@@ -73,10 +73,6 @@
   border-top: 1px solid rgba(200,135,74,0.15);
 }
 
-.result-row:first-of-type {
-  border-top: none;
-}
-
 .result-label {
   font-size: 11px;
   color: var(--wood-light);

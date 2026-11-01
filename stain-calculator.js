@@ -1,6 +1,7 @@
 let stainType = null;
 let colors = [];
 let validationAttempted = false;
+let nextColorId = 0;
 
 function selectType(type) {
   stainType = type;
@@ -25,7 +26,7 @@ function selectType(type) {
 }
 
 function addColor() {
-  colors.push({ id: Date.now(), parts: "", name: "", brand: "" });
+  colors.push({ id: ++nextColorId, parts: "", name: "", brand: "" });
   renderColors();
 }
 
@@ -184,19 +185,25 @@ function calculate() {
     return { ...c, parts, name: c.name.trim(), brand: c.brand.trim(), ozNeeded, unitsToBuy, unitLabel };
   });
 
-  const mixRows = colorResults.map(c => `
+  const mixRows = colorResults.map(c => {
+    const brandSuffix = c.brand ? ` · ${sanitize(c.brand)}` : "";
+    return `
     <div class="result-row">
-      <span class="result-label">${sanitize(c.parts)} parts · ${sanitize(c.name)} · ${sanitize(c.brand)}</span>
+      <span class="result-label">${sanitize(c.parts)} parts · ${sanitize(c.name)}${brandSuffix}</span>
       <span class="result-value">${fmt(c.ozNeeded)} oz</span>
     </div>
-  `).join("");
+  `;
+  }).join("");
 
-  const purchaseRows = colorResults.map(c => `
+  const purchaseRows = colorResults.map(c => {
+    const brandSuffix = c.brand ? ` · ${sanitize(c.brand)}` : "";
+    return `
     <div class="purchase-row">
-      <span class="purchase-label">${sanitize(c.name)} · ${sanitize(c.brand)}</span>
+      <span class="purchase-label">${sanitize(c.name)}${brandSuffix}</span>
       <span class="purchase-value">${c.unitsToBuy} ${c.unitLabel}${c.unitsToBuy > 1 ? "s" : ""}</span>
     </div>
-  `).join("");
+  `;
+  }).join("");
 
   resultEl.innerHTML = `
     <div class="result-box">
