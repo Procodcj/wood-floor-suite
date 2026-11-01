@@ -30,6 +30,21 @@
 
       <div id="roomList"></div>
 
+      <!-- Waste Factor -->
+      <div class="field-group" id="wasteGroup">
+        <label for="customWaste">Waste Factor</label>
+        <div class="waste-selector">
+          <button type="button" class="waste-btn active" data-waste="0">0%</button>
+          <button type="button" class="waste-btn" data-waste="5">5%</button>
+          <button type="button" class="waste-btn" data-waste="10">10%</button>
+          <button type="button" class="waste-btn" data-waste="15">15%</button>
+          <div class="waste-custom-wrap">
+            <input type="number" id="customWaste" placeholder="Custom" min="0" max="100" step="any" inputmode="decimal" aria-label="Custom waste percentage">
+            <span class="waste-unit">%</span>
+          </div>
+        </div>
+      </div>
+
       <div id="grandTotal"></div>
 
     </div>

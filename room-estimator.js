@@ -1,5 +1,6 @@
 let rooms = [];
 let nextId = 0;
+let wastePercent = 0;
 
 function addRoom() {
   const nameInput = document.getElementById("roomName");
@@ -100,6 +101,48 @@ function formatArea(n) {
   return n > 0 ? fmt(n) + " ft²" : "";
 }
 
+function selectWastePreset(percent) {
+  wastePercent = percent;
+  const customInput = document.getElementById("customWaste");
+  if (customInput) {
+    customInput.value = "";
+    customInput.classList.remove("error");
+    customInput.setAttribute("aria-invalid", "false");
+  }
+  document.querySelectorAll(".waste-btn").forEach(btn => {
+    btn.classList.toggle("active", Number(btn.dataset.waste) === percent);
+  });
+  renderGrandTotal();
+}
+
+function handleCustomWaste(inputEl) {
+  const raw = inputEl.value;
+  const trimmed = raw.trim();
+
+  document.querySelectorAll(".waste-btn").forEach(btn => {
+    btn.classList.remove("active");
+  });
+
+  if (trimmed === "" && !inputEl.validity.badInput) {
+    wastePercent = 0;
+    inputEl.classList.remove("error");
+    inputEl.setAttribute("aria-invalid", "false");
+    document.querySelectorAll(".waste-btn").forEach(btn => {
+      btn.classList.toggle("active", Number(btn.dataset.waste) === 0);
+    });
+    renderGrandTotal();
+    return;
+  }
+
+  const parsed = parsePositiveDecimal(raw);
+  const invalid = inputEl.validity.badInput || isNaN(parsed) || parsed > 100;
+
+  inputEl.classList.toggle("error", invalid);
+  inputEl.setAttribute("aria-invalid", invalid ? "true" : "false");
+  wastePercent = invalid ? 0 : parsed;
+  renderGrandTotal();
+}
+
 function fmt(n) {
   return n.toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ",");
 }
@@ -162,17 +205,47 @@ function renderRooms() {
 
 function renderGrandTotal() {
   const totalEl = document.getElementById("grandTotal");
-  const grandTotal = rooms.reduce((sum, r) => sum + getRoomTotal(r), 0);
-  totalEl.innerHTML = grandTotal > 0 ? `
+  const netTotal = rooms.reduce((sum, r) => sum + getRoomTotal(r), 0);
+  if (netTotal <= 0) {
+    totalEl.innerHTML = "";
+    return;
+  }
+
+  const safeWaste = Number.isFinite(wastePercent) && wastePercent > 0 ? wastePercent : 0;
+  const wasteSqft = netTotal * (safeWaste / 100);
+  const finalTotal = netTotal + wasteSqft;
+
+  totalEl.innerHTML = `
     <div class="grand-total-box">
-      <span class="grand-total-label">Grand Total</span>
-      <span class="grand-total-value">${fmt(grandTotal)} ft²</span>
+      <div class="grand-total-row">
+        <span class="grand-total-label">Net Total</span>
+        <span class="grand-total-subvalue">${fmt(netTotal)} ft²</span>
+      </div>
+      <div class="grand-total-row">
+        <span class="grand-total-label">Waste (+${safeWaste}%)</span>
+        <span class="grand-total-subvalue">+${fmt(wasteSqft)} ft²</span>
+      </div>
+      <div class="grand-total-row">
+        <span class="grand-total-label">Total Suggested Order</span>
+        <span class="grand-total-value">${fmt(finalTotal)} ft²</span>
+      </div>
     </div>
-  ` : "";
+  `;
 }
 
 document.addEventListener("DOMContentLoaded", () => {
   document.getElementById("addRoomBtn").addEventListener("click", addRoom);
+
+  const wasteGroup = document.getElementById("wasteGroup");
+  wasteGroup.addEventListener("click", (event) => {
+    const btn = event.target.closest("button.waste-btn");
+    if (!btn) return;
+    selectWastePreset(Number(btn.dataset.waste));
+  });
+
+  const customWasteInput = document.getElementById("customWaste");
+  customWasteInput.addEventListener("keydown", blockInvalidKeys);
+  customWasteInput.addEventListener("input", () => handleCustomWaste(customWasteInput));
 
   const listEl = document.getElementById("roomList");
 
